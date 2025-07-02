@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from telegram import (
@@ -17,7 +18,7 @@ from telegram.ext import (
 from io import BytesIO
 from create_docs import generate_excel_and_docx  # импорт генерации Excel и DOCX
 
-API_TOKEN = '7604612037:AAHdcVbG7YGMFmkWCxJ-yh7w8g8ECukAZrA'
+API_TOKEN = os.getenv('API_TOKEN')
 
 logging.basicConfig(level=logging.INFO)
 user_states = {}
