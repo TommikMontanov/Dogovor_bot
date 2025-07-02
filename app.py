@@ -1,4 +1,7 @@
 import os
+import threading
+import time
+import http.client
 import json
 import logging
 from telegram import (
@@ -93,6 +96,35 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error("Ошибка при обработке JSON:", exc_info=True)
         await update.message.reply_text("❌ Ошибка в формате JSON. Отправьте корректные данные.")
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+
+# URL приложения на Render
+SELF_URL = os.getenv('SELF_URL', 'https://your-bot-name.onrender.com')  # Замените на ваш URL Render
+
+# Функция пинга
+def heartbeat():
+    while True:
+        try:
+            # Удаляем 'https://' из URL для http.client
+            host = SELF_URL.replace('https://', '')
+            conn = http.client.HTTPSConnection(host)
+            conn.request('GET', '/')
+            res = conn.getresponse()
+            logging.info(f'[Пинг] Код статуса: {res.status}')
+            conn.close()
+        except Exception as e:
+            logging.error(f'[Пинг] Ошибка: {str(e)}')
+        time.sleep(30)  # Пинг каждые 30 секунд
+
+# Запуск пинга в отдельном потоке
+def start_heartbeat():
+    heartbeat_thread = threading.Thread(target=heartbeat)
+    heartbeat_thread.daemon = True
+    heartbeat_thread.start()
+    logging.info('Пинг запущен')
+
 
 # Запуск бота
 def main():
