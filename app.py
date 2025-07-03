@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Переменные окружения
 API_TOKEN = os.getenv('API_TOKEN')
-SELF_URL = os.getenv('SELF_URL', 'https://dogovor-bot-gzdq.onrender.com')  # Замените на ваш URL Render
+SELF_URL = os.getenv('SELF_URL', 'https://dogovor-bot-5q8p.onrender.com')  # Замените на ваш URL Render
 PORT = int(os.getenv('PORT', 8000))  # Render задает PORT, по умолчанию 8000 для локального тестирования
 
 user_states = {}
