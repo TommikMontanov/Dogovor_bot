@@ -2,29 +2,53 @@ import os
 import threading
 import time
 import http.client
+import http.server
+import socketserver
 import json
 import logging
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    InputFile
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    ContextTypes,
-    filters
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from io import BytesIO
 from create_docs import generate_excel_and_docx  # импорт генерации Excel и DOCX
 
-API_TOKEN = os.getenv('API_TOKEN')
-
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
+
+# Переменные окружения
+API_TOKEN = os.getenv('API_TOKEN')
+SELF_URL = os.getenv('SELF_URL', 'https://your-bot-name.onrender.com')  # Замените на ваш URL Render
+PORT = int(os.getenv('PORT', 8000))  # Render задает PORT, по умолчанию 8000 для локального тестирования
+
 user_states = {}
+
+# Простой HTTP-сервер для ответа на запросы
+class PingHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Bot is running')
+
+# Функция пинга
+def heartbeat():
+    while True:
+        try:
+            host = SELF_URL.replace('https://', '')
+            conn = http.client.HTTPSConnection(host)
+            conn.request('GET', '/')
+            res = conn.getresponse()
+            logging.info(f'[Пинг] Код статуса: {res.status}')
+            conn.close()
+        except Exception as e:
+            logging.error(f'[Пинг] Ошибка: {str(e)}')
+        time.sleep(30)  # Пинг каждые 30 секунд
+
+# Запуск пинга в отдельном потоке
+def start_heartbeat():
+    heartbeat_thread = threading.Thread(target=heartbeat)
+    heartbeat_thread.daemon = True
+    heartbeat_thread.start()
+    logging.info('Пинг запущен')
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -97,37 +121,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error("Ошибка при обработке JSON:", exc_info=True)
         await update.message.reply_text("❌ Ошибка в формате JSON. Отправьте корректные данные.")
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-
-# URL приложения на Render
-SELF_URL = os.getenv('SELF_URL', 'https://dogovor-bot-gzdq.onrender.com')  # Замените на ваш URL Render
-
-# Функция пинга
-def heartbeat():
-    while True:
-        try:
-            # Удаляем 'https://' из URL для http.client
-            host = SELF_URL.replace('https://', '')
-            conn = http.client.HTTPSConnection(host)
-            conn.request('GET', '/')
-            res = conn.getresponse()
-            logging.info(f'[Пинг] Код статуса: {res.status}')
-            conn.close()
-        except Exception as e:
-            logging.error(f'[Пинг] Ошибка: {str(e)}')
-        time.sleep(30)  # Пинг каждые 30 секунд
-
-# Запуск пинга в отдельном потоке
-def start_heartbeat():
-    heartbeat_thread = threading.Thread(target=heartbeat)
-    heartbeat_thread.daemon = True
-    heartbeat_thread.start()
-    logging.info('Пинг запущен')
-
-
 # Запуск бота
 def main():
+    # Проверка API_TOKEN
+    if not API_TOKEN:
+        logging.error("API_TOKEN не установлен. Проверьте переменные окружения.")
+        return
+
+    # Запуск HTTP-сервера в отдельном потоке
+    server = socketserver.TCPServer(('', PORT), PingHandler)
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    logging.info(f'HTTP-сервер запущен на порту {PORT}')
+
+    # Запуск пинга
+    start_heartbeat()
+
+    # Запуск бота
     app = ApplicationBuilder().token(API_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -135,7 +146,12 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    app.run_polling()
+    try:
+        app.run_polling()
+    finally:
+        server.shutdown()
+        server.server_close()
+        logging.info('HTTP-сервер остановлен')
 
 if __name__ == "__main__":
     main()
