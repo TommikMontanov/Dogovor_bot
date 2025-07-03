@@ -101,7 +101,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 logging.basicConfig(level=logging.INFO)
 
 # URL приложения на Render
-SELF_URL = os.getenv('SELF_URL', 'https://your-bot-name.onrender.com')  # Замените на ваш URL Render
+SELF_URL = os.getenv('SELF_URL', 'https://dogovor-bot-gzdq.onrender.com')  # Замените на ваш URL Render
 
 # Функция пинга
 def heartbeat():
