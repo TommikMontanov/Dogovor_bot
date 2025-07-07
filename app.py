@@ -149,8 +149,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Запуск бота
 def main():
     # Проверка \
-
-API_TOKEN
     if not API_TOKEN:
         logging.error("API_TOKEN не установлен. Проверьте переменные окружения.")
         return
